@@ -14,7 +14,10 @@ async function handleRequest(request) {
     const url = new URL(request.url);
 
     // 从路径中提取密钥
-    const secret = url.pathname.substring(1).replace(/\s+/g, '');
+    // 从路径中提取密钥并进行URL解码
+    const decodedPath = decodeURIComponent(url.pathname.substring(1));
+    // 移除所有空白字符
+    const secret = decodedPath.replace(/\s+/g, '');
 
     // 检查密钥是否存在
     if (!secret) {
