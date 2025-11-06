@@ -246,6 +246,10 @@ async function handleRequest(request) {
               width: 100%;
               margin-top: 20px;
             }
+            .url-tip {
+              width: 100%;
+              margin-top: 20px;
+            }
             .totp .code span {
               font-size: 22px;
               padding: 8px 12px;
@@ -267,7 +271,9 @@ async function handleRequest(request) {
 
           /* URL 参数提示样式，保持与 2FA.html 一致 */
           .url-tip {
-            margin-top: 20px;
+            width: 520px;
+            max-width: 100%;
+            margin: 20px auto 0;
           }
           .url-tip .tip-content {
             background: #f0f9ff;
