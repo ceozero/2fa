@@ -580,13 +580,13 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
         
         updateProgress();
         
+        // 立即开始预加载下一个验证码（提前准备）
+        if (!state.nextToken && !state.isPreloading && state.remaining > 1) {
+          preloadNextToken();
+        }
+        
         state.intervalId = setInterval(() => {
           state.remaining--;
-          
-          // 提前3秒预加载下一个验证码
-          if (state.remaining === 3 && !state.nextToken && !state.isPreloading) {
-            preloadNextToken();
-          }
           
           if (state.remaining <= 0) {
             clearInterval(state.intervalId);
