@@ -456,6 +456,43 @@ async function handleRequest(request) {
               });
           }
 
+          // 刷新验证码（仅更新验证码，不改变UI状态）
+          function refreshTotp() {
+            if (!currentSecret) return;
+            
+            const currentPath = window.location.pathname;
+            const newPath = '/' + encodeURIComponent(currentSecret);
+            
+            // 静默获取新的验证码
+            fetch(newPath + '?format=json')
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error('生成失败');
+                }
+                return response.json();
+              })
+              .then(data => {
+                // 只更新验证码和计时器，不改变其他UI状态
+                tokenEl.textContent = data.token;
+                
+                // 重新计算剩余时间
+                const epochTime = Math.floor(Date.now() / 1000);
+                const currentCounter = Math.floor(epochTime / totalTime);
+                const expirationTime = (currentCounter + 1) * totalTime;
+                remaining = expirationTime - epochTime;
+                
+                // 重新启动计时器
+                startTimer();
+              })
+              .catch(error => {
+                console.error('自动刷新验证码失败:', error);
+                // 刷新失败时，尝试重新初始化
+                if (currentSecret) {
+                  initTotp(currentSecret);
+                }
+              });
+          }
+
           // 开始计时器
           function startTimer() {
             if (intervalId) {
@@ -471,10 +508,8 @@ async function handleRequest(request) {
               
               if (remaining <= 0) {
                 clearInterval(intervalId);
-                // 自动刷新
-                if (currentSecret) {
-                  initTotp(currentSecret);
-                }
+                // 自动刷新验证码（只刷新验证码，不刷新整个生成器）
+                refreshTotp();
               }
             }, 1000);
           }
