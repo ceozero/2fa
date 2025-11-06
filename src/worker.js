@@ -264,6 +264,48 @@ async function handleRequest(request) {
               padding: 0 20px;
             }
           }
+
+          /* URL 参数提示样式，保持与 2FA.html 一致 */
+          .url-tip {
+            margin-top: 20px;
+          }
+          .url-tip .tip-content {
+            background: #f0f9ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13px;
+            color: #1e40af;
+          }
+          .url-tip .tip-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+          }
+          .url-tip .tip-title::before {
+            content: "💡";
+            margin-right: 6px;
+          }
+          .url-example {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #475569;
+            word-break: break-all;
+          }
+          .copy-btn {
+            margin-left: 8px;
+            font-size: 12px;
+            padding: 2px 8px;
+            cursor: pointer;
+            color: #006eff;
+            background: transparent;
+            border: none;
+          }
         </style>
       </head>
       <body>
@@ -296,6 +338,24 @@ async function handleRequest(request) {
               </div>
               <div class="copied-message" id="copied">已复制!</div>
             </div>
+          </div>
+        </div>
+
+        <!-- URL 参数使用提示（原生实现） -->
+        <div class="url-tip">
+          <div class="tip-content">
+            <div class="tip-title">快速使用方式</div>
+            <div>您可以通过URL参数直接传入密钥，无需手动输入：</div>
+            <div class="url-example">
+              <span id="example-url"></span>
+              <button class="copy-btn" id="copy-url">复制</button>
+            </div>
+            <div>您可以通过URL参数JSON格式直接传入密钥，获取JSON格式：</div>
+            <div class="url-example">
+              <span id="example-json-url"></span>
+              <button class="copy-btn" id="copy-json-url">复制</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: #64748b">将 YOUR_SECRET_KEY 替换为您的实际密钥即可</div>
           </div>
         </div>
         <script>
@@ -460,6 +520,77 @@ async function handleRequest(request) {
               initTotp(e.state.secret);
             }
           });
+
+          // ===== URL 参数使用提示逻辑 =====
+          // 说明：在页面底部展示两种快速使用示例，并提供复制功能
+          (function initUrlHints() {
+            // 计算当前基础 URL（不包含路径中密钥）
+            const origin = window.location.origin;
+            const base = origin; // 直接使用根，便于粘贴
+            const example = base + '/YOUR_SECRET_KEY';
+            const exampleJson = example + '?format=json';
+
+            const exampleUrlEl = document.getElementById('example-url');
+            const exampleJsonUrlEl = document.getElementById('example-json-url');
+            const copyUrlBtn = document.getElementById('copy-url');
+            const copyJsonUrlBtn = document.getElementById('copy-json-url');
+
+            if (exampleUrlEl) exampleUrlEl.textContent = example;
+            if (exampleJsonUrlEl) exampleJsonUrlEl.textContent = exampleJson;
+
+            // 复制函数（优先使用 Clipboard API，回退到 execCommand）
+            function copyText(text) {
+              if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+              }
+              return fallbackCopy(text);
+            }
+
+            function fallbackCopy(text) {
+              try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-999999px';
+                ta.style.top = '-999999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                return Promise.resolve();
+              } catch (e) {
+                return Promise.reject(e);
+              }
+            }
+
+            if (copyUrlBtn) {
+              copyUrlBtn.addEventListener('click', () => {
+                copyText(example)
+                  .then(() => {
+                    // 使用顶部已存在的提示区域
+                    copiedEl.classList.add('show');
+                    setTimeout(() => copiedEl.classList.remove('show'), 2000);
+                  })
+                  .catch(() => {
+                    alert('复制失败，请手动复制');
+                  });
+              });
+            }
+
+            if (copyJsonUrlBtn) {
+              copyJsonUrlBtn.addEventListener('click', () => {
+                copyText(exampleJson)
+                  .then(() => {
+                    copiedEl.classList.add('show');
+                    setTimeout(() => copiedEl.classList.remove('show'), 2000);
+                  })
+                  .catch(() => {
+                    alert('复制失败，请手动复制');
+                  });
+              });
+            }
+          })();
         </script>
       </body>
     </html>
