@@ -379,15 +379,25 @@ async function handleRequest(request) {
           let currentSecret = ${JSON.stringify(secret || '')};
           let intervalId = null;
 
+          // 【新增】一个在客户端计算剩余时间的函数
+          function calculateClientRemaining() {
+            const epochTime = Math.floor(Date.now() / 1000);
+            const currentCounter = Math.floor(epochTime / totalTime);
+            const expirationTime = (currentCounter + 1) * totalTime;
+            // 确保不会是 0 或负数，至少给 1 秒
+            const clientRemaining = expirationTime - epochTime;
+            return clientRemaining <= 0 ? (clientRemaining + totalTime) : clientRemaining;
+          }
+
           // 初始化：如果服务器端已经生成了 OTP，直接显示
           ${(secret && otp) ? `
             tokenEl.textContent = ${JSON.stringify(otp)};
             codeContainer.style.display = 'block';
             secondsContainer.style.display = 'block';
+            remaining = calculateClientRemaining(); // <-- 【修改】在客户端计算
             startTimer();
           ` : secret ? `
-            // 如果只有密钥但生成失败，尝试重新生成
-            initTotp(${JSON.stringify(secret)});
+            // ...
           ` : ''}
 
           // 获取按钮点击事件
@@ -508,6 +518,7 @@ async function handleRequest(request) {
               
               if (remaining <= 0) {
                 clearInterval(intervalId);
+                tokenEl.textContent = '...'; // <-- 【新增】立即清除旧令牌
                 // 自动刷新验证码（只刷新验证码，不刷新整个生成器）
                 refreshTotp();
               }
