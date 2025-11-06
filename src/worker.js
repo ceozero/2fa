@@ -409,7 +409,9 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
         remaining: 0,
         retryCount: 0,
         isRefreshing: false,
-        serverTimeOffset: 0 // 服务器时间与客户端时间的偏移量
+        serverTimeOffset: 0, // 服务器时间与客户端时间的偏移量
+        nextToken: null, // 预加载的下一个验证码
+        isPreloading: false // 是否正在预加载
       };
 
       // 计算服务器时间偏移（仅用于补偿网络延迟）
@@ -498,6 +500,17 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
       function refreshTotp() {
         if (!state.currentSecret || state.isRefreshing) return;
         
+        // 如果有预加载的验证码，直接使用
+        if (state.nextToken) {
+          els.token.textContent = state.nextToken.token;
+          state.remaining = getAdjustedRemaining(state.nextToken.remaining, state.nextToken.serverTime);
+          state.nextToken = null; // 清空已使用的预加载数据
+          state.retryCount = 0;
+          startTimer();
+          return;
+        }
+        
+        // 没有预加载数据时才显示 "..."
         if (state.retryCount >= MAX_RETRY) {
           showError('自动刷新失败次数过多，请手动重新获取');
           clearInterval(state.intervalId);
@@ -507,6 +520,7 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
         
         state.isRefreshing = true;
         state.retryCount++;
+        els.token.textContent = '...';
         
         const path = '/' + encodeURIComponent(state.currentSecret);
         
@@ -529,6 +543,35 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
           });
       }
 
+      // 预加载下一个验证码（提前3秒）
+      function preloadNextToken() {
+        if (!state.currentSecret || state.isPreloading || state.nextToken) return;
+        
+        state.isPreloading = true;
+        const path = '/' + encodeURIComponent(state.currentSecret);
+        
+        fetch(path + '?format=json')
+          .then(response => {
+            if (!response.ok) throw new Error('预加载失败');
+            return response.json();
+          })
+          .then(data => {
+            // 只有当返回的验证码与当前不同时才保存（说明是下一个周期的验证码）
+            if (data.token !== els.token.textContent) {
+              state.nextToken = {
+                token: data.token,
+                remaining: data.remaining,
+                serverTime: data.serverTime
+              };
+            }
+            state.isPreloading = false;
+          })
+          .catch(() => {
+            state.isPreloading = false;
+            console.error('预加载下一个验证码失败');
+          });
+      }
+
       // 开始计时器
       function startTimer() {
         if (state.intervalId) {
@@ -540,9 +583,13 @@ function getClientScript(secret, initialOtp, remainingTime, serverTime, hasValid
         state.intervalId = setInterval(() => {
           state.remaining--;
           
+          // 提前3秒预加载下一个验证码
+          if (state.remaining === 3 && !state.nextToken && !state.isPreloading) {
+            preloadNextToken();
+          }
+          
           if (state.remaining <= 0) {
             clearInterval(state.intervalId);
-            els.token.textContent = '...';
             state.remaining = 0;
             updateProgress();
             refreshTotp();
